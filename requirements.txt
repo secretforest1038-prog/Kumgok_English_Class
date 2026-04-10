@@ -1,7 +1,2 @@
 streamlit
 gTTS
-easyocr
-opencv-python-headless
-numpy
-Pillow
-streamlit-local-storage
