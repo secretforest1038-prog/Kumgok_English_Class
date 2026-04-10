@@ -8,159 +8,163 @@ import json
 from streamlit_local_storage import LocalStorage
 from datetime import datetime
 
-# 1. 페이지 설정 (초등학생 맞춤 UI)
+# 1. 페이지 설정
 st.set_page_config(
-    page_title="초등 영어 발음 친구", 
+    page_title="Kumgok English Class", 
     page_icon="🔊", 
     layout="wide",
-    initial_sidebar_state="collapsed" # 처음엔 숨김
+    initial_sidebar_state="auto" # 기기에 맞춰 자동으로 보이게 설정
 )
 
-# --- 초특급 직관적 UI 스타일링 (CSS) ---
+# --- UI 스타일링 및 버튼 크기 강제 확대 (CSS) ---
 st.markdown("""
     <style>
-    /* 전체 글자 크기 키우기 */
-    html, body, [class*="css"]  {
-        font-size: 1.2rem;
+    /* 전체 폰트 및 배경 */
+    @import url('https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&display=swap');
+    html, body, [class*="css"] {
+        font-family: 'Nanum Gothic', sans-serif;
     }
-    
-    /* 메인 타이틀 스타일 */
+
+    /* 프로그램 제목 스타일 */
     .main-title {
-        font-size: 3rem !important;
-        color: #FF6B6B; /* 예쁜 주황색 */
+        font-size: 3.5rem !important;
+        color: #2E5BFF;
         text-align: center;
+        font-weight: bold;
+        padding: 20px 0;
+        border-bottom: 3px solid #F0F2F6;
         margin-bottom: 30px;
     }
-    
-    /* 학습 기록 보기 버튼 (메인 화면) */
-    .stButton>button[data-testid="stBaseButton-secondary"] {
-        background-color: #4ECDC4; /* 예쁜 민트색 */
-        color: white;
-        font-size: 1.5rem !important;
-        padding: 15px 30px;
-        border-radius: 10px;
-        width: 100%;
-        margin-bottom: 20px;
+
+    /* 사이드바 열기/닫기 화살표 버튼 크기 키우기 (가장 중요!) */
+    [data-testid="stSidebarCollapseButton"] {
+        background-color: #2E5BFF !important;
+        color: white !important;
+        width: 60px !important;
+        height: 60px !important;
+        top: 10px !important;
+        left: 10px !important;
+        border-radius: 50% !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
     }
-    
-    /* 발음 듣기 버튼 (메인 화면) */
+    [data-testid="stSidebarCollapseButton"] svg {
+        width: 35px !important;
+        height: 35px !important;
+    }
+
+    /* 버튼 공통 스타일 */
+    .stButton>button {
+        border-radius: 12px !important;
+        font-weight: bold !important;
+    }
+
+    /* 발음 듣기 버튼 (Primary) */
     .stButton>button[data-testid="stBaseButton-primary"] {
-        font-size: 2rem !important;
-        padding: 20px 40px;
+        background-color: #FF4B4B !important;
+        font-size: 1.8rem !important;
+        padding: 1rem 2rem !important;
     }
 
-    /* 사이드바 스타일 정의 */
-    [data-testid="stSidebar"] {
-        background-color: #f0f2f6;
-        padding: 20px;
-    }
-    
-    /* 사이드바 내 기록 제목 스타일 */
-    .sidebar-record-title {
-        font-size: 1.3rem;
+    /* 안내 문구 스타일 */
+    .info-text {
+        background-color: #E8F0FE;
+        padding: 15px;
+        border-radius: 10px;
+        color: #1967D2;
         font-weight: bold;
-        color: #333;
+        margin-bottom: 20px;
+        text-align: center;
     }
 
-    /* 불필요한 UI 숨기기 (메뉴, 푸터 등) */
+    /* 하단 푸터 및 메뉴 숨기기 */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     [data-testid="stToolbar"] {visibility: hidden;}
-    /* 기본 접기 버튼 숨기기 (우리가 만든 버튼 사용) */
-    [data-testid="stSidebarCollapseButton"] {display: none;}
     </style>
 """, unsafe_allow_html=True)
 
-
 # 2. 로컬 저장소 및 OCR 초기화
-local_storage = LocalStorage("english_learner")
+local_storage = LocalStorage("kumgok_english")
 
 @st.cache_resource
 def load_ocr():
-    return easyocr.Reader(['en'])
+    # 모델 로드 시 진행 바 표시 방지 및 속도 최적화
+    return easyocr.Reader(['en'], gpu=False)
 reader = load_ocr()
 
-
-# --- 사이드바 (나의 학습 기록) ---
+# 3. 사이드바 (나의 학습 기록)
 with st.sidebar:
-    st.markdown("<h1 style='text-align: center; color: #333;'>📚 나의 학습 기록</h1>", unsafe_allow_html=True)
-    st.write("그동안 공부한 문장들이에요!")
+    st.markdown("<h2 style='text-align: center;'>📚 My History</h2>", unsafe_allow_html=True)
+    st.write("공부했던 기록을 다시 들어보세요!")
     
     saved_history = local_storage.getItem("study_history")
     history_list = json.loads(saved_history) if saved_history else []
 
     if history_list:
-        for i, item in enumerate(reversed(history_list)):
-            # 기록 제목 크기 키움
-            with st.expander(f"📌 {item['time']} 기록", expanded=True):
+        for i, item in enumerate(reversed(history_list[-15:])): # 최근 15개
+            with st.expander(f"📌 {item['time']}", expanded=False):
                 st.write(item['text'])
-                # 다시 듣기 버튼 크기 키움
-                if st.button("🔊 다시 듣기", key=f"re_{i}", use_container_width=True):
+                if st.button("🔊 Re-play", key=f"re_{i}", use_container_width=True):
                     st.session_state.input_text = item['text']
                     st.rerun()
         
         st.divider()
-        if st.button("🗑️ 전체 기록 삭제", use_container_width=True):
+        if st.button("🗑️ Reset All", use_container_width=True):
             local_storage.removeItem("study_history")
             st.rerun()
     else:
-        st.info("아직 공부한 기록이 없어요. 문장을 입력하거나 사진을 찍어보세요!")
+        st.info("No history yet!")
 
+# 4. 메인 화면 구성
+st.markdown("<h1 class='main-title'>📖 Kumgok English Class</h1>", unsafe_allow_html=True)
 
-# --- 메인 화면 구성 ---
-# 타이틀 크게 표시
-st.markdown("<h1 class='main-title'>🔊 초등 영어 발음 친구</h1>", unsafe_allow_html=True)
+# 학생들을 위한 친절한 안내
+st.markdown("<div class='info-text'>📍 왼쪽 위의 파란색 동그라미 버튼(>)을 누르면 내 학습 기록이 보여요!</div>", unsafe_allow_html=True)
 
-# 3. [핵심 수정] 학습 기록 보기 버튼 추가 (크고 직관적)
-col_record, _ = st.columns([1, 2])
-with col_record:
-    if st.button("📚 내 학습 기록 보기", key="show_history"):
-        st.write("왼쪽에서 기록창이 열립니다!")
-        # 사이드바 강제 열기 (Streamlit 함수 활용)
-        st.session_state["sidebar_state"] = "expanded"
-        st.rerun()
-
-# 4. 입력부 (순서 조정: 입력 -> 촬영 -> 앨범)
-input_mode = st.radio("공부할 방법을 골라주세요:", ["⌨️ 직접 입력", "📷 사진 촬영", "📁 앨범 선택"], horizontal=True)
+# 입력 모드 선택
+input_mode = st.radio("Choose Method:", ["⌨️ Typing", "📷 Camera", "📁 Album"], horizontal=True)
 
 if 'input_text' not in st.session_state:
     st.session_state.input_text = ""
 
+# 입력 방식별 로직
 captured_text = ""
-if input_mode == "⌨️ 직접 입력":
+if input_mode == "⌨️ Typing":
     pass
-elif input_mode == "📷 사진 촬영":
-    img_src = st.camera_input("교과서 문장을 찰칵! 찍어주세요")
+elif input_mode == "📷 Camera":
+    img_src = st.camera_input("Take a photo of your textbook!")
     if img_src:
-        with st.spinner('글자를 읽는 중... 조금만 기다려주세요!'):
+        with st.spinner('Reading English...'):
             result = reader.readtext(np.array(Image.open(img_src)), detail=0)
             captured_text = " ".join(result)
-elif input_mode == "📁 앨범 선택":
-    img_src = st.file_uploader("사진을 선택해주세요", type=['jpg','png','jpeg'])
+elif input_mode == "📁 Album":
+    img_src = st.file_uploader("Choose a photo from your tablet", type=['jpg','png','jpeg'])
     if img_src:
-        with st.spinner('글자를 읽는 중... 조금만 기다려주세요!'):
+        with st.spinner('Reading English...'):
             result = reader.readtext(np.array(Image.open(img_src)), detail=0)
             captured_text = " ".join(result)
 
 if captured_text:
     st.session_state.input_text = captured_text
 
+# 5. 출력 및 음성 재생
+st.subheader("📝 Sentence Check")
+final_text = st.text_area("Check and edit the sentence:", value=st.session_state.input_text, height=120)
 
-# 5. 출력부
-st.subheader("📝 공부할 문장 확인")
-final_text = st.text_area("틀린 글자가 있다면 고쳐주세요:", value=st.session_state.input_text, height=150)
-
-# 발음 듣기 버튼 크게
-if st.button("🔊 발음 듣기", type="primary", use_container_width=True) and final_text:
-    tts = gTTS(text=final_text, lang='en')
-    fp = io.BytesIO()
-    tts.write_to_fp(fp)
-    fp.seek(0)
-    st.audio(fp, format="audio/mp3")
+if st.button("🔊 Speak English", type="primary", use_container_width=True) and final_text:
+    with st.spinner('Generating voice...'):
+        tts = gTTS(text=final_text, lang='en')
+        fp = io.BytesIO()
+        tts.write_to_fp(fp)
+        fp.seek(0)
+        st.audio(fp, format="audio/mp3")
     
-    # 6. 기록 저장 로직 (4/5_1 형식)
+    # 6. 기록 저장 (4/10_1 형식)
     now = datetime.now()
-    date_str = now.strftime("%m/%d").replace("0", "") # 04/05 -> 4/5 형태
+    date_str = f"{now.month}/{now.day}"
     
     today_count = sum(1 for item in history_list if item['time'].startswith(date_str)) + 1
     time_label = f"{date_str}_{today_count}"
@@ -168,5 +172,5 @@ if st.button("🔊 발음 듣기", type="primary", use_container_width=True) and
     if not history_list or history_list[-1]['text'] != final_text:
         history_list.append({"time": time_label, "text": final_text})
         local_storage.setItem("study_history", json.dumps(history_list))
-        st.toast(f"{time_label} 기록 완료!")
+        st.toast(f"Saved: {time_label}")
         st.rerun()
